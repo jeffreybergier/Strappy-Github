@@ -64,18 +64,18 @@ Local (inside the container shell):
 | `npm run typecheck` | `tsc --noEmit` (strict; also checks `*.test.ts`) |
 | `npm test` | Node built-in test runner: `node --import tsx --test "src/**/*.test.ts"` |
 
-Via Docker Compose (from the Mac, in the repo root):
+From the host, in the repo root:
 
 | Command | What it does |
 |---|---|
-| `docker compose up serve` | Start the dashboard; browse `http://localhost:3000` on the Mac |
+| `./bin/strappy` | Read the GitHub PAT from 1Password and start the dashboard on port 3000 |
 | `docker compose run --rm test` | Run the test suite once; exits with the test result code |
 | `docker compose run --rm altivec-intelligence` | Interactive AI CLI chooser |
 | `docker compose run --rm shell "<cmd>"` | One-off command in the toolchain shell |
 
-`compose.yml` services: `altivec-intelligence`, `shell`, `serve`, `test`.
-(Names `serve`/`shell` were chosen by the maintainer; don't rename without
-asking.)
+`compose.yml` services: `altivec-intelligence`, `shell`, `test`, plus the
+profiled `altivec-sdk` helper. The authenticated server deliberately runs
+through `bin/strappy`, not Compose.
 
 ## How OpenRouter + pi.dev is wired
 
@@ -128,7 +128,8 @@ asking.)
 ## Environment variables
 
 Copy `.env.example` → `.env` (the repo `.gitignore` ignores `.env`, keeps
-`.env.example`). `dotenv` loads `.env` from the working dir.
+`.env.example`). `dotenv` loads `.env` from the working dir. `bin/strappy`
+supplies `GITHUB_TOKEN` from 1Password separately.
 
 | Var | Default | Purpose |
 |---|---|---|
@@ -149,7 +150,8 @@ issues/PRs. For local testing run with `GITHUB_TOKEN="" DB_PATH=/tmp/<x>.sqlite`
 
 ```
 config/models.json     OpenRouter provider + model declarations (pi.dev format)
-compose.yml            Docker services: altivec-intelligence, shell, serve, test
+bin/strappy            authenticated 1Password + Docker server launcher
+compose.yml            Docker services: altivec-intelligence, shell, test, SDK helper
 prompts/               static step system prompts: implement-issue, code-review,
                        review-pull-request, update-pull-request, security-check,
                        personality; guidance.json holds every per-field model
@@ -237,8 +239,8 @@ into later inputs and persists live/final run state through `SqliteJobStore`.
   seeded process maps **served from SQLite**; `GET /api/jobs` / `/api/runs`
   return JSON hydrated from `data/strappy.sqlite` (auto-created + seeded; the
   file is gitignored — `git check-ignore` confirms).
-- (Could not run `docker compose` in the build sandbox — no daemon. The maintainer
-  confirmed `docker compose up serve` works from the Mac.)
+- The dashboard container is launched by `bin/strappy`; Compose remains for
+  interactive tooling and tests.
 - **Lifecycle verified live** (2026-06-11, throwaway `/tmp` DB): SIGTERM drains
   (in-flight job keeps running up to `SHUTDOWN_TIMEOUT_MS`), a second SIGTERM
   exits immediately; a run abandoned mid-LLM-call was marked "interrupted" with
@@ -249,9 +251,7 @@ into later inputs and persists live/final run state through `SqliteJobStore`.
 ## Next steps / open items
 
 1. **Live-verify** the LLM seam against OpenRouter once a key is set.
-2. Optional: wire `OPENROUTER_API_KEY` into the `serve` service (e.g.
-   `env_file: .env`) so LLM steps work under compose.
-3. Optional tidy-up: `*.test.ts` under `src/` get emitted to `dist/` on build
+2. Optional tidy-up: `*.test.ts` under `src/` get emitted to `dist/` on build
    (inert, gitignored). Add a `tsconfig.build.json` that excludes tests if a
    clean `dist/` is wanted.
 

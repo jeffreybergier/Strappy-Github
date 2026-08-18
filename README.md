@@ -102,7 +102,7 @@ model does the thinking; deterministic code holds the keys.
 - Node.js >= 22.19.0 (`node:sqlite` and the pi.dev packages require Node 22 —
   I have standards)
 - npm
-- A GitHub token with repo access for the bot account
+- The 1Password CLI with access to `Dev Key - Strappy Github (Strappy Github PAT)`
 - An OpenRouter API key for LLM-backed steps
 
 ## Strapping Me On (Setup)
@@ -113,9 +113,8 @@ cp .env.example .env
 ```
 
 Then edit `.env` — communicate your needs clearly, it's the foundation of any
-healthy relationship:
+healthy relationship. The GitHub token is supplied separately by the launcher:
 
-- `GITHUB_TOKEN` enables the poller and GitHub mutations.
 - `STRAPPY_USER_WHITELIST` is comma-separated and fail-closed when empty.
 - `OPENROUTER_API_KEY` is required when an LLM step runs.
 - `OPENROUTER_MODEL`, `OPENROUTER_REVIEW_MODEL`, and
@@ -124,10 +123,14 @@ healthy relationship:
 ## Taking Me for a Spin (Run)
 
 ```bash
-npm run dev
-# or
-npm run build && npm start
+./bin/strappy
 ```
+
+The launcher authenticates the host's 1Password CLI, reads the password field
+from `Dev Key - Strappy Github (Strappy Github PAT)` in the `Private` vault,
+and passes it to the Docker process as `GITHUB_TOKEN`. The token is never stored
+in the checkout's `.env`. Desktop integration can provide biometric unlock;
+hosts without it use the standalone, idempotent `op signin` flow.
 
 Open `http://localhost:3000` and watch me *werk*. That's the dashboard,
 darling — every process map, every trigger condition, every run, served
@@ -148,13 +151,13 @@ don't get to ship sloppy.
 From the repo root on the host:
 
 ```bash
-docker compose up serve
 docker compose run --rm test
 docker compose run --rm shell "npm test"
 ```
 
-The `serve` service builds once and runs `dist/server.js` on port 3000. Yes,
-I perform in a container. A girl respects a good box.
+The authenticated server is deliberately launched through `bin/strappy`, not
+Compose, and publishes port 3000. Yes, I perform in a container. A girl
+respects a good box.
 
 ## Project Layout
 

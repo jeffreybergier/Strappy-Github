@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Authenticate before reading the secret. `op signin` is idempotent and uses
+# either configured desktop app integration or a standalone CLI session.
+OP_SIGNIN="$(op signin)"
+eval "$OP_SIGNIN"
+unset OP_SIGNIN
+GITHUB_TOKEN="$(op read 'op://Private/Dev Key - Strappy Github (Strappy Github PAT)/password')"
+export GITHUB_TOKEN
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+exec docker run --rm -it \
+  --env GITHUB_TOKEN \
+  --publish 0.0.0.0:3000:3000 \
+  --volume "$HOME/.strappy:/root" \
+  --volume "$REPO_DIR:/repo/strappy-git" \
+  --workdir /repo/strappy-git \
+  --entrypoint /bin/bash \
+  ghcr.io/jeffreybergier/altivec-intelligence:latest \
+  -lc 'npm install --no-fund --no-audit && npm run build && exec npm start'
