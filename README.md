@@ -127,10 +127,11 @@ healthy relationship. The GitHub token is supplied separately by the launcher:
 ```
 
 The launcher authenticates the host's 1Password CLI, reads the password field
-from `Dev Key - Strappy Github (Strappy Github PAT)` in the `Private` vault,
-and passes it to the Docker process as `GITHUB_TOKEN`. The token is never stored
-in the checkout's `.env`. Desktop integration can provide biometric unlock;
-hosts without it use the standalone, idempotent `op signin` flow.
+from item `yhnn64e4cygjn4yvsvtmzol4pu` (`Dev Key - Strappy Github (Strappy
+Github PAT)`) in the `Private` vault, and passes it to the Docker process as
+`GITHUB_TOKEN`. The token is never stored in the checkout's `.env`. Desktop
+integration can provide biometric unlock; hosts without it use the standalone,
+idempotent `op signin` flow.
 
 Open `http://localhost:3000` and watch me *werk*. That's the dashboard,
 darling — every process map, every trigger condition, every run, served

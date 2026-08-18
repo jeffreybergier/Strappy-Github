@@ -6,7 +6,7 @@ set -euo pipefail
 OP_SIGNIN="$(op signin)"
 eval "$OP_SIGNIN"
 unset OP_SIGNIN
-GITHUB_TOKEN="$(op read 'op://Private/Dev Key - Strappy Github (Strappy Github PAT)/password')"
+GITHUB_TOKEN="$(op read 'op://Private/yhnn64e4cygjn4yvsvtmzol4pu/password')"
 export GITHUB_TOKEN
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
