@@ -44,7 +44,7 @@ providers behind one OpenAI-compatible endpoint.
 - Repo root (host-mounted): **`/repo/strappy-git`** — git origin
   `git@github.com:jeffreybergier/Strappy-git.git`.
 - Runs inside the `ghcr.io/jeffreybergier/altivec-intelligence:latest` container
-  (macOS host runs Docker Desktop). Node v22, npm 11.
+  (macOS host runs Docker Desktop). Node v24, npm 12.
 - The repo is bind-mounted into the container at `/repo/strappy-git`
   (`.:/repo/strappy-git`). **Files written there persist on the Mac host.**
 - ⚠️ **Past gotcha (fixed):** `compose.yml` `working_dir` was once set to a
@@ -86,11 +86,11 @@ through `bin/strappy`, not Compose.
 - `src/llm/pi.ts` is the **single LLM seam**: `runStructured(...)` returns the
   model's submit-tool values plus a full `LlmExecution`; LLM-backed step kinds
   call this through `src/jobs/llmKind.ts` / `src/jobs/securityKind.ts`.
-  - `AuthStorage.create()` resolves credentials; `ModelRegistry.create(auth,
-    config.modelsPath)` loads built-in + custom models from the **repo-local**
-    `config/models.json`; `modelRegistry.find(provider, id)` resolves the model.
-  - Session: `createAgentSession({ model, tools: [], authStorage,
-    modelRegistry, sessionManager: SessionManager.inMemory() })`, then
+  - `ModelRuntime.create({ modelsPath: config.modelsPath })` resolves credentials
+    and loads built-in + custom models from the **repo-local**
+    `config/models.json`; `modelRuntime.getModel(provider, id)` resolves the model.
+  - Session: `createAgentSession({ model, tools: [], modelRuntime,
+    sessionManager: SessionManager.inMemory() })`, then
     `session.subscribe(event => …)` (accumulate `event.assistantMessageEvent.delta`
     when `event.type === "message_update"` and
     `event.assistantMessageEvent.type === "text_delta"`; finish on
@@ -226,7 +226,7 @@ into later inputs and persists live/final run state through `SqliteJobStore`.
 - Path resolution uses `process.cwd()` (views, `config/models.json`), so the app
   **must be run from the repo root** (the compose `working_dir`).
 - Tests use Node's built-in runner (`node:test` + `node:assert/strict`), no
-  extra test deps; run through the `tsx` loader. Node 22's `--test` glob +
+  extra test deps; run through the `tsx` loader. Node 24's `--test` glob +
   loader propagation to child processes is what makes `*.test.ts` run.
 
 ## Verified working

@@ -3,9 +3,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import {
-  AuthStorage,
   DefaultResourceLoader,
-  ModelRegistry,
+  ModelRuntime,
   SessionManager,
   SettingsManager,
   createAgentSession,
@@ -59,26 +58,17 @@ const log = createLogger("PiClient");
 type AgentSession = Awaited<ReturnType<typeof createAgentSession>>["session"];
 type SessionEvent = Parameters<Parameters<AgentSession["subscribe"]>[0]>[0];
 
-let auth: AuthStorage | null = null;
-let registry: ModelRegistry | null = null;
+let modelRuntimePromise: Promise<ModelRuntime> | null = null;
 let personality: string | null = null;
 
-function getRegistry(): ModelRegistry {
-  if (registry !== null) return registry;
-  auth = AuthStorage.create();
-  registry = ModelRegistry.create(auth, config.modelsPath);
-  return registry;
+function getModelRuntime(): Promise<ModelRuntime> {
+  modelRuntimePromise ??= ModelRuntime.create({ modelsPath: config.modelsPath });
+  return modelRuntimePromise;
 }
 
-function getAuth(): AuthStorage {
-  getRegistry();
-  if (auth === null) throw new Error("[PiClient.getAuth] auth storage not initialized");
-  return auth;
-}
-
-function resolveModel(modelId?: string) {
+function resolveModel(modelRuntime: ModelRuntime, modelId?: string) {
   const id = modelId ?? config.openRouter.model;
-  const model = getRegistry().find(config.openRouter.provider, id);
+  const model = modelRuntime.getModel(config.openRouter.provider, id);
   if (model === undefined || model === null) {
     throw new Error(
       `[PiClient.resolveModel] model not found: ${config.openRouter.provider}/${id} (check config/models.json)`,
@@ -253,11 +243,11 @@ export function scrubbedBashTool(cwd: string): ToolDefinition {
 
 async function openSession(sm: SessionManager, stepPrompt?: string, customTools?: ToolDefinition[], cwd?: string, builtinTools = true, modelId?: string): Promise<AgentSession> {
   const sessionCwd = cwd ?? process.cwd();
+  const modelRuntime = await getModelRuntime();
   const base = {
-    model: resolveModel(modelId),
+    model: resolveModel(modelRuntime, modelId),
     cwd: sessionCwd,
-    authStorage: getAuth(),
-    modelRegistry: getRegistry(),
+    modelRuntime,
     sessionManager: sm,
     resourceLoader: await cleanLoader(appendLayers(stepPrompt), sessionCwd),
   };

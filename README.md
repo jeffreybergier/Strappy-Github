@@ -99,7 +99,7 @@ model does the thinking; deterministic code holds the keys.
 
 ## Prerequisites, aka What It Takes to Handle Me
 
-- Node.js >= 22.19.0 (`node:sqlite` and the pi.dev packages require Node 22 —
+- Node.js >= 24.0.0 (`node:sqlite` and the current pi.dev packages run on Node 24 —
   I have standards)
 - npm
 - The 1Password CLI with access to `Dev Key - Strappy Github`
