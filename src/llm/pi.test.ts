@@ -235,19 +235,25 @@ test("mergeExecutions rejects a missing execution", () => {
   assert.throws(() => mergeExecutions(undefined as never, exec({})), /two executions are required/);
 });
 
-test("scrubSpawnEnv strips both credentials from the spawn env and keeps the rest", () => {
+test("scrubSpawnEnv strips sensitive values from the spawn env and keeps the rest", () => {
   const context = {
     command: "env",
     cwd: "/tmp/clone",
     env: {
       [config.openRouter.apiKeyEnv]: "sk-or-secret",
       [config.github.tokenEnv]: "ghp-secret",
+      [config.github.userWhitelistEnv]: "private-user",
+      [config.github.committerNameEnv]: "private-name",
+      [config.github.committerEmailEnv]: "private-email",
       PATH: "/usr/bin",
     },
   };
   const scrubbed = scrubSpawnEnv(context);
   assert.equal(scrubbed.env[config.openRouter.apiKeyEnv], undefined);
   assert.equal(scrubbed.env[config.github.tokenEnv], undefined);
+  assert.equal(scrubbed.env[config.github.userWhitelistEnv], undefined);
+  assert.equal(scrubbed.env[config.github.committerNameEnv], undefined);
+  assert.equal(scrubbed.env[config.github.committerEmailEnv], undefined);
   assert.equal(scrubbed.env.PATH, "/usr/bin");
   assert.equal(scrubbed.command, "env");
   assert.equal(scrubbed.cwd, "/tmp/clone");

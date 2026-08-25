@@ -6,13 +6,23 @@ set -euo pipefail
 OP_SIGNIN="$(op signin)"
 eval "$OP_SIGNIN"
 unset OP_SIGNIN
-GITHUB_TOKEN="$(op read 'op://Private/yhnn64e4cygjn4yvsvtmzol4pu/password')"
-export GITHUB_TOKEN
+OP_ITEM='op://Private/Dev Key - Strappy Github'
+GITHUB_TOKEN="$(op read "$OP_ITEM/GITHUB_TOKEN")"
+OPENROUTER_API_KEY="$(op read "$OP_ITEM/OPENROUTER_API_KEY")"
+STRAPPY_USER_WHITELIST="$(op read "$OP_ITEM/STRAPPY_USER_WHITELIST")"
+STRAPPY_GIT_NAME="$(op read "$OP_ITEM/STRAPPY_GIT_NAME")"
+STRAPPY_GIT_EMAIL="$(op read "$OP_ITEM/STRAPPY_GIT_EMAIL")"
+unset OP_ITEM
+export GITHUB_TOKEN OPENROUTER_API_KEY STRAPPY_USER_WHITELIST STRAPPY_GIT_NAME STRAPPY_GIT_EMAIL
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 exec docker run --rm -it \
   --env GITHUB_TOKEN \
+  --env OPENROUTER_API_KEY \
+  --env STRAPPY_USER_WHITELIST \
+  --env STRAPPY_GIT_NAME \
+  --env STRAPPY_GIT_EMAIL \
   --publish 0.0.0.0:3000:3000 \
   --volume "$HOME/.strappy:/root" \
   --volume "$REPO_DIR:/repo/strappy-git" \

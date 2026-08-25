@@ -1,4 +1,3 @@
-import "dotenv/config";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
@@ -229,13 +228,16 @@ function buildSubmitTool(schema: TObject, toolName: string, capture: (args: Reco
 // (its getShellEnv spreads process.env), which would expose the OpenRouter key
 // to model-authored commands. This same-named replacement shadows the built-in
 // (custom tools register after built-ins under one name registry) and scrubs
-// the secrets from the spawn env. The GitHub token is already deleted from
-// process.env at startup (config.ts); it is scrubbed here too as defense in
-// depth.
+// sensitive values from the spawn env. The GitHub token, whitelist, and commit
+// identity are already deleted from process.env at startup (config.ts); they
+// are scrubbed here too as defense in depth.
 export function scrubSpawnEnv(context: BashSpawnContext): BashSpawnContext {
   const env = { ...context.env };
   delete env[config.openRouter.apiKeyEnv];
   delete env[config.github.tokenEnv];
+  delete env[config.github.userWhitelistEnv];
+  delete env[config.github.committerNameEnv];
+  delete env[config.github.committerEmailEnv];
   return { ...context, env };
 }
 
@@ -316,7 +318,7 @@ async function saveTranscript(sm: SessionManager, runId: string | undefined, ses
   }
 }
 
-// data/sessions/, anchored to the configured DB dir so it tracks DB_PATH. Exported
+// data/sessions/, anchored to the configured DB directory. Exported
 // so the server can serve this dir at /sessions and the stored transcript paths
 // resolve to a clickable link.
 export function sessionsDir(): string {

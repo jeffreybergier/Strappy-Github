@@ -32,8 +32,8 @@ the conditions on each process map's trigger card.
 
 LLM access goes through **[pi.dev](https://pi.dev)** (the `@earendil-works/pi-*`
 packages, used as an **SDK / library — not the CLI**) talking to
-**[OpenRouter](https://openrouter.ai)**, so we can run open-source models
-(Llama, Qwen, DeepSeek, …) behind one OpenAI-compatible endpoint.
+**[OpenRouter](https://openrouter.ai)**, so we can run models from multiple
+providers behind one OpenAI-compatible endpoint.
 
 > Status: web server + dashboard + LLM seam + SQLite persistence + GitHub issue
 > poller + scheduler + tests are implemented. Live OpenRouter/GitHub mutation
@@ -68,7 +68,7 @@ From the host, in the repo root:
 
 | Command | What it does |
 |---|---|
-| `./bin/strappy` | Read the GitHub PAT from 1Password and start the dashboard on port 3000 |
+| `./bin/strappy` | Read sensitive values from 1Password and start the dashboard on port 3000 |
 | `docker compose run --rm test` | Run the test suite once; exits with the test result code |
 | `docker compose run --rm altivec-intelligence` | Interactive AI CLI chooser |
 | `docker compose run --rm shell "<cmd>"` | One-off command in the toolchain shell |
@@ -82,7 +82,7 @@ through `bin/strappy`, not Compose.
 - `config/models.json` declares an `openrouter` provider — an OpenAI-compatible
   endpoint (`api: "openai-completions"`, `baseUrl:
   "https://openrouter.ai/api/v1"`, `apiKey: "$OPENROUTER_API_KEY"`) and a list
-  of open-source models. Pi resolves `$OPENROUTER_API_KEY` from the environment.
+  of selected models. Pi resolves `$OPENROUTER_API_KEY` from the environment.
 - `src/llm/pi.ts` is the **single LLM seam**: `runStructured(...)` returns the
   model's submit-tool values plus a full `LlmExecution`; LLM-backed step kinds
   call this through `src/jobs/llmKind.ts` / `src/jobs/securityKind.ts`.
@@ -95,8 +95,8 @@ through `bin/strappy`, not Compose.
     when `event.type === "message_update"` and
     `event.assistantMessageEvent.type === "text_delta"`; finish on
     `event.type === "agent_end"`) and `session.prompt(text)`.
-- Default model: `OPENROUTER_MODEL` env, falling back to
-  `deepseek/deepseek-v4-pro`. Add models in `config/models.json`
+- Default, review, and security models are selected in `config/runtime.json`.
+  Add model declarations in `config/models.json`
   (any [OpenRouter model id](https://openrouter.ai/models)).
 - ⚠️ **Not yet verified end-to-end:** the LLM seam typechecks against the real
   Pi SDK types but no live OpenRouter call has been made (needs a key). Verify
@@ -107,7 +107,8 @@ through `bin/strappy`, not Compose.
 - Jobs, process steps, typed inputs/outputs, and runs persist to a **local
   SQLite file** via Node's **built-in `node:sqlite`** (`DatabaseSync`) — no npm
   dependency, no native build. It's synchronous, so the store stays synchronous.
-- File path: `config.dbPath` → `DB_PATH` env, default **`data/strappy.sqlite`**
+- File path: `config.dbPath`, loaded from `storage.dbPath` in
+  `config/runtime.json` (currently **`data/strappy.sqlite`**)
   (resolved from `process.cwd()`). The whole **`data/` dir is gitignored** along
   with `*.sqlite`/`-wal`/`-shm` — runtime data is never checked in. `data/` is
   created on demand; the DB is **seeded from `seed.ts` only when empty**
@@ -125,30 +126,29 @@ through `bin/strappy`, not Compose.
   routes accept either) and adds `saveJob()` / `recordRun()` write methods — the
   persistence seam the scheduler calls to record real `JobRun`s.
 
-## Environment variables
+## Configuration
 
-Copy `.env.example` → `.env` (the repo `.gitignore` ignores `.env`, keeps
-`.env.example`). `dotenv` loads `.env` from the working dir. `bin/strappy`
-supplies `GITHUB_TOKEN` from 1Password separately.
+`config/runtime.json` holds all committed, non-sensitive preferences and is
+strictly validated at startup. `bin/strappy` reads only these named 1Password
+fields and passes them to Docker without creating an environment file:
 
-| Var | Default | Purpose |
-|---|---|---|
-| `OPENROUTER_API_KEY` | (none) | OpenRouter key; required only when an LLM step runs |
-| `OPENROUTER_MODEL` | `deepseek/deepseek-v4-pro` | Default model id |
-| `LOG_LEVEL` | `info` | Minimum log level (`debug`/`info`/`warn`/`error`); at `info`, steady-state poller lines (counts, skip reasons) print only when they change — `debug` prints every tick plus raw GitHub request lines |
-| `PORT` | `3000` | Dashboard port |
-| `HOST` | `0.0.0.0` | Bind interface (keep `0.0.0.0` for Docker reachability) |
-| `DB_PATH` | `data/strappy.sqlite` | SQLite file path (gitignored; auto-created + seeded) |
-| `SHUTDOWN_TIMEOUT_MS` | `30000` | How long SIGTERM/SIGINT waits for an in-flight job before exiting anyway |
+- `GITHUB_TOKEN`
+- `OPENROUTER_API_KEY`
+- `STRAPPY_USER_WHITELIST`
+- `STRAPPY_GIT_NAME`
+- `STRAPPY_GIT_EMAIL`
 
-⚠️ **The local `.env` can hold REAL credentials** — booting the server (even
-for a quick smoke test) starts the live poller, which will claim and run real
-issues/PRs. For local testing run with `GITHUB_TOKEN="" DB_PATH=/tmp/<x>.sqlite`
-(an explicitly empty env var beats `.env`, which disables the poller).
+The GitHub token, whitelist, and commit identity are captured and removed from
+`process.env` at startup. Pi must re-resolve the OpenRouter key for API calls,
+so the LLM bash tool explicitly removes all five fields from child
+environments. An absent or empty whitelist remains fail-closed. Booting with
+real 1Password values starts the live poller and may claim real issues or PRs;
+tests do not use the launcher.
 
 ## Project structure
 
 ```
+config/runtime.json    committed non-sensitive runtime preferences
 config/models.json     OpenRouter provider + model declarations (pi.dev format)
 bin/strappy            authenticated 1Password + Docker server launcher
 compose.yml            Docker services: altivec-intelligence, shell, test, SDK helper
@@ -242,7 +242,7 @@ into later inputs and persists live/final run state through `SqliteJobStore`.
 - The dashboard container is launched by `bin/strappy`; Compose remains for
   interactive tooling and tests.
 - **Lifecycle verified live** (2026-06-11, throwaway `/tmp` DB): SIGTERM drains
-  (in-flight job keeps running up to `SHUTDOWN_TIMEOUT_MS`), a second SIGTERM
+  (in-flight job keeps running up to `server.shutdownTimeoutMs`), a second SIGTERM
   exits immediately; a run abandoned mid-LLM-call was marked "interrupted" with
   its ledger row stamped on the next boot (comment skipped — booted tokenless).
 - `POST /api/runs/retry` answers 400/404/409 correctly over HTTP; the

@@ -80,7 +80,7 @@ export function createGitHubClient(token: string): GitHubClient {
   }
   // Octokit's request-log plugin prints every API call at info (success) and
   // error (failure, before rethrowing). Callers already catch and report
-  // failures with context, so raw request lines surface only at LOG_LEVEL=debug.
+  // failures with context, so raw request lines surface only at debug level.
   const octokit = new Octokit({
     auth: token,
     log: {

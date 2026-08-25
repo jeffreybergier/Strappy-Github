@@ -1,4 +1,3 @@
-import "dotenv/config";
 import path from "node:path";
 import type { Server } from "node:http";
 import express from "express";
@@ -49,7 +48,7 @@ function warnIfNoKey(): void {
   if (typeof key === "string" && key.trim() !== "") return;
   log.warn(
     "start",
-    `${config.openRouter.apiKeyEnv} not set — LLM steps will fail until you add it to .env`,
+    `${config.openRouter.apiKeyEnv} not set — LLM steps will fail until it is supplied at launch`,
   );
 }
 

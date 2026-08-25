@@ -12,12 +12,12 @@ Here's what I actually am, technically speaking: a Node.js + TypeScript web
 server that watches GitHub repositories for new issues, new pull requests, and
 replies on pull requests from a whitelisted set of humans, then runs
 **ISO 9001-inspired job process maps** — explicit, ordered steps with typed
-inputs and outputs — backed by open-source LLMs. Every run is recorded to
+inputs and outputs — backed by OpenRouter-hosted LLMs. Every run is recorded to
 SQLite so the receipts are *always* available. A girl keeps her paperwork.
 
 LLM access goes through [pi.dev](https://pi.dev) (the `@earendil-works/pi-*`
 packages, used as a library) pointed at [OpenRouter](https://openrouter.ai),
-so I can serve looks with Llama, Qwen, DeepSeek — any open model behind one
+so I can serve looks with Luna, DeepSeek, and other models behind one
 OpenAI-compatible endpoint declared in `config/models.json`.
 
 ## What I Can Do, Sweetie
@@ -76,9 +76,9 @@ model does the thinking; deterministic code holds the keys.
   `http.extraHeader` (`src/github/git.ts`) — the token is never written to
   `.git/config` or the remote URL, and it is redacted from any error before it
   can reach logs or persisted run notes.
-- **No credentials in the environment, either.** The GitHub token is captured
-  once at startup and deleted from `process.env` (`src/config.ts`), so no
-  child process — the model's bash shell included — can ever read it. The
+- **No credentials or personal settings in the model's environment, either.**
+  The GitHub token, whitelist, and commit identity are captured once at startup
+  and deleted from `process.env` (`src/config.ts`). The
   OpenRouter key, which pi must re-resolve from the environment on every API
   request, is scrubbed from the bash tool's spawn env instead via a
   same-named override of pi's built-in bash tool (`src/llm/pi.ts`).
@@ -102,23 +102,27 @@ model does the thinking; deterministic code holds the keys.
 - Node.js >= 22.19.0 (`node:sqlite` and the pi.dev packages require Node 22 —
   I have standards)
 - npm
-- The 1Password CLI with access to `Dev Key - Strappy Github (Strappy Github PAT)`
+- The 1Password CLI with access to `Dev Key - Strappy Github`
 - An OpenRouter API key for LLM-backed steps
 
 ## Strapping Me On (Setup)
 
 ```bash
 npm install
-cp .env.example .env
 ```
 
-Then edit `.env` — communicate your needs clearly, it's the foundation of any
-healthy relationship. The GitHub token is supplied separately by the launcher:
+Edit committed, non-sensitive preferences in `config/runtime.json`. Model
+provider declarations remain in `config/models.json`. The launcher supplies
+these fields from the `Private` vault's `Dev Key - Strappy Github` item:
 
-- `STRAPPY_USER_WHITELIST` is comma-separated and fail-closed when empty.
-- `OPENROUTER_API_KEY` is required when an LLM step runs.
-- `OPENROUTER_MODEL`, `OPENROUTER_REVIEW_MODEL`, and
-  `OPENROUTER_SECURITY_MODEL` must be declared in `config/models.json`.
+- `GITHUB_TOKEN`
+- `OPENROUTER_API_KEY`
+- `STRAPPY_USER_WHITELIST` (comma-separated and fail-closed when empty)
+- `STRAPPY_GIT_NAME`
+- `STRAPPY_GIT_EMAIL`
+
+The three model IDs in `config/runtime.json` must be declared in
+`config/models.json`.
 
 ## Taking Me for a Spin (Run)
 
@@ -126,12 +130,11 @@ healthy relationship. The GitHub token is supplied separately by the launcher:
 ./bin/strappy
 ```
 
-The launcher authenticates the host's 1Password CLI, reads the password field
-from item `yhnn64e4cygjn4yvsvtmzol4pu` (`Dev Key - Strappy Github (Strappy
-Github PAT)`) in the `Private` vault, and passes it to the Docker process as
-`GITHUB_TOKEN`. The token is never stored in the checkout's `.env`. Desktop
-integration can provide biometric unlock; hosts without it use the standalone,
-idempotent `op signin` flow.
+The launcher authenticates the host's 1Password CLI, reads the five named
+fields from `Dev Key - Strappy Github`, and passes them directly to the Docker
+process. No environment file is created. Desktop integration can provide
+biometric unlock; hosts without it use the standalone, idempotent `op signin`
+flow.
 
 Open `http://localhost:3000` and watch me *werk*. That's the dashboard,
 darling — every process map, every trigger condition, every run, served
@@ -163,10 +166,11 @@ respects a good box.
 ## Project Layout
 
 ```text
+config/runtime.json      committed non-sensitive runtime preferences
 config/models.json       OpenRouter provider and model declarations
 compose.yml              local container services
 prompts/                 system prompts for LLM steps + my fabulous personality
-src/config.ts            strict env loading + startup credential scrub
+src/config.ts            strict JSON loading + startup sensitive-value scrub
 src/logger.ts            namespaced logger
 src/server.ts            Express bootstrap and poller startup
 src/github/              Octokit wrapper, git helpers, trigger poller
